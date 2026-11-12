@@ -3,6 +3,8 @@ import express from "express";
 import http from "http";
 import { Server as SocketIO } from "socket.io";
 import invoiceRoutes from "./routes/invoiceRoutes";
+import { createNegotiationRoutes } from "./routes/negotiationRoutes";
+import { setupNegotiationSocketHandlers } from "./socket/negotiationSocket";
 
 type UserToFollow = {
   socketId: string;
@@ -73,25 +75,34 @@ app.use("/api/invoices", invoiceRoutes);
 
 const server = http.createServer(app);
 
-server.listen(port, () => {
-  console.log(`Calidraw server listening on port: ${port}`);
-  serverDebug(`listening on port: ${port}`);
-});
-
+let io: SocketIO;
 try {
-  const io = new SocketIO(server, {
+  io = new SocketIO(server, {
     transports: ["websocket", "polling"],
     cors: {
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "x-user-id"],
       origin: corsOrigin,
       credentials: true,
     },
     allowEIO3: true,
   });
 
+  // Mount Negotiation & PayPal routes
+  app.use("/api/negotiation", createNegotiationRoutes(io));
+  app.use("/api/paypal", createNegotiationRoutes(io));
+
+  server.listen(port, () => {
+    console.log(`Calidraw server listening on port: ${port}`);
+    serverDebug(`listening on port: ${port}`);
+  });
+
   io.on("connection", (socket) => {
     ioDebug("connection established!");
     io.to(`${socket.id}`).emit("init-room");
+
+    // Attach negotiation socket handlers
+    setupNegotiationSocketHandlers(io, socket);
+
     socket.on("join-room", async (roomID) => {
       socketDebug(`${socket.id} has joined ${roomID}`);
       await socket.join(roomID);
