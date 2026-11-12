@@ -6,10 +6,57 @@ import {
   sendPaypalInvoice,
   getPaypalInvoice,
   verifyWebhookSignature,
+  runPaypalDiagnostics,
 } from "../services/paypalService";
 
 export function createNegotiationRoutes(io: SocketIO): Router {
   const router = Router();
+
+  /**
+   * GET /diagnostics (or /api/paypal/diagnostics)
+   * Protected diagnostic endpoint to verify PayPal OAuth, Invoicing, and API permissions.
+   */
+  router.get("/diagnostics", async (req: Request, res: Response) => {
+    try {
+      const adminKey = (
+        req.headers["x-admin-key"] ||
+        req.query.adminKey ||
+        req.query.key ||
+        ""
+      ).toString();
+
+      const configuredKey = (
+        process.env.ADMIN_DIAGNOSTIC_KEY ||
+        process.env.PAYPAL_DIAGNOSTIC_SECRET ||
+        ""
+      ).trim();
+
+      // Protected access: in production, require configured key
+      if (process.env.NODE_ENV === "production" && !configuredKey) {
+        return res.status(403).json({
+          success: false,
+          error: "Diagnostics disabled: Configure ADMIN_DIAGNOSTIC_KEY in server environment.",
+        });
+      }
+
+      if (configuredKey && adminKey !== configuredKey) {
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized: Invalid or missing diagnostic secret key.",
+        });
+      }
+
+      const report = await runPaypalDiagnostics();
+      const statusCode = report.overallStatus === "FAILED" ? 502 : 200;
+      return res.status(statusCode).json({
+        success: report.overallStatus !== "FAILED",
+        ...report,
+      });
+    } catch (err: any) {
+      console.error("[PayPal Diagnostics Error]", err);
+      return res.status(500).json({ success: false, error: err.message || "Diagnostic test error" });
+    }
+  });
 
   /**
    * GET /api/negotiation/:roomId
@@ -31,7 +78,15 @@ export function createNegotiationRoutes(io: SocketIO): Router {
   router.post("/:negotiationId/create-invoice", async (req: Request, res: Response) => {
     try {
       const { negotiationId } = req.params;
-      const { sellerName, customerEmail, customerName, note, senderSocketId } = req.body;
+      const {
+        sellerName,
+        sellerEmail,
+        invoicerEmail,
+        customerEmail,
+        customerName,
+        note,
+        senderSocketId,
+      } = req.body;
 
       const negotiation = negotiationRepository.get(negotiationId);
       if (!negotiation) {
@@ -66,10 +121,14 @@ export function createNegotiationRoutes(io: SocketIO): Router {
         return res.status(400).json({ success: false, error: "No agreed line items found" });
       }
 
+      const allowMock = process.env.PAYPAL_MOCK === "true" || process.env.ALLOW_MOCK_PAYPAL === "true";
       let paypalResult;
+
       try {
         paypalResult = await createPaypalInvoice({
           sellerName: sellerName || negotiation.hostName || "Host Seller",
+          sellerEmail: sellerEmail || invoicerEmail,
+          invoicerEmail: invoicerEmail || sellerEmail,
           customerName: customerName || negotiation.collaboratorName || "Collaborator",
           customerEmail: customerEmail || "buyer@example.com",
           currency: agreedOffer.currency || negotiation.currency || "USD",
@@ -81,15 +140,33 @@ export function createNegotiationRoutes(io: SocketIO): Router {
           note,
         });
       } catch (paypalErr: any) {
-        console.warn("PayPal API call failed or not configured, using mock/fallback invoice:", paypalErr.message);
-        // Fallback invoice creation for dev/testing when PayPal credentials are not configured
-        const randomId = `INV2-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        paypalResult = {
-          paypalInvoiceId: randomId,
-          status: "DRAFT",
-          invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-          raw: { id: randomId },
-        };
+        if (allowMock) {
+          console.warn(`[PayPal Mock] Using mock invoice for local testing (PAYPAL_MOCK=true): ${paypalErr.message}`);
+          const randomId = `INV2-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+          paypalResult = {
+            paypalInvoiceId: randomId,
+            status: "DRAFT",
+            invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+            raw: { id: randomId },
+          };
+        } else {
+          console.error(
+            `[PayPal Invoice Error] Failed to create invoice for negotiation ${negotiationId}:`,
+            paypalErr.message,
+            paypalErr.debugId ? `(DebugID: ${paypalErr.debugId})` : ""
+          );
+          const statusCode =
+            typeof paypalErr.status === "number" && paypalErr.status >= 400 && paypalErr.status < 600
+              ? paypalErr.status
+              : 502;
+          return res.status(statusCode).json({
+            success: false,
+            error: paypalErr.message || "Failed to create PayPal invoice",
+            name: paypalErr.name || "PAYPAL_ERROR",
+            debugId: paypalErr.debugId || null,
+            details: paypalErr.details || null,
+          });
+        }
       }
 
       negotiation.status = "INVOICE_CREATED";
@@ -145,16 +222,43 @@ export function createNegotiationRoutes(io: SocketIO): Router {
         return res.status(403).json({ success: false, error: "Only the host can send the invoice" });
       }
 
+      const allowMock = process.env.PAYPAL_MOCK === "true" || process.env.ALLOW_MOCK_PAYPAL === "true";
       let sendResult;
+
       try {
         sendResult = await sendPaypalInvoice(negotiation.invoice.paypalInvoiceId);
       } catch (paypalErr: any) {
-        console.warn("PayPal send failed or not configured, using fallback URL:", paypalErr.message);
-        sendResult = {
-          paypalInvoiceId: negotiation.invoice.paypalInvoiceId,
-          status: "SENT",
-          recipientViewUrl: `https://www.sandbox.paypal.com/invoice/p/#${negotiation.invoice.paypalInvoiceId}`,
-        };
+        if (allowMock) {
+          console.warn(`[PayPal Mock] Using fallback URL for local testing (PAYPAL_MOCK=true): ${paypalErr.message}`);
+          sendResult = {
+            paypalInvoiceId: negotiation.invoice.paypalInvoiceId,
+            status: "SENT",
+            recipientViewUrl: `https://www.sandbox.paypal.com/invoice/p/#${negotiation.invoice.paypalInvoiceId}`,
+          };
+        } else {
+          console.error(
+            `[PayPal Send Error] Failed to send invoice ${negotiation.invoice.paypalInvoiceId}:`,
+            paypalErr.message,
+            paypalErr.debugId ? `(DebugID: ${paypalErr.debugId})` : ""
+          );
+          const statusCode =
+            typeof paypalErr.status === "number" && paypalErr.status >= 400 && paypalErr.status < 600
+              ? paypalErr.status
+              : 502;
+          return res.status(statusCode).json({
+            success: false,
+            error: paypalErr.message || "Failed to send PayPal invoice",
+            name: paypalErr.name || "PAYPAL_ERROR",
+            debugId: paypalErr.debugId || null,
+          });
+        }
+      }
+
+      if (!sendResult.recipientViewUrl && !allowMock) {
+        return res.status(502).json({
+          success: false,
+          error: "PayPal invoice was sent, but PayPal did not return a valid payer-facing view URL.",
+        });
       }
 
       negotiation.status = "PAYMENT_PENDING";
