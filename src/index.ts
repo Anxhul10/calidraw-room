@@ -2,6 +2,7 @@ import debug from "debug";
 import express from "express";
 import http from "http";
 import { Server as SocketIO } from "socket.io";
+import invoiceRoutes from "./routes/invoiceRoutes";
 
 type UserToFollow = {
   socketId: string;
@@ -23,8 +24,43 @@ require("dotenv").config(
 );
 
 const app = express();
-const port =
-  process.env.PORT || (process.env.NODE_ENV !== "development" ? 80 : 3002); // default port to listen
+const rawPort = parseInt(process.env.PORT || "", 10);
+const port = !isNaN(rawPort) && rawPort > 0 ? rawPort : 3002;
+const configuredOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOrigin =
+  configuredOrigins.length > 1
+    ? configuredOrigins
+    : configuredOrigins[0] || "*";
+
+// Enable CORS for API routes
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS",
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-user-id",
+  );
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+// JSON & body parsing with 50mb limit for canvas images
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use(express.static("public"));
 
@@ -32,9 +68,13 @@ app.get("/", (req, res) => {
   res.send("Excalidraw collaboration server is up :)");
 });
 
+// Mount Invoice API
+app.use("/api/invoices", invoiceRoutes);
+
 const server = http.createServer(app);
 
 server.listen(port, () => {
+  console.log(`Calidraw server listening on port: ${port}`);
   serverDebug(`listening on port: ${port}`);
 });
 
@@ -43,7 +83,7 @@ try {
     transports: ["websocket", "polling"],
     cors: {
       allowedHeaders: ["Content-Type", "Authorization"],
-      origin: process.env.CORS_ORIGIN || "*",
+      origin: corsOrigin,
       credentials: true,
     },
     allowEIO3: true,

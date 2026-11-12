@@ -1,0 +1,38 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+}
+
+model Invoice {
+  id            String         @id @default(uuid())
+  invoiceNumber String         @unique
+  title         String
+  userId        String
+  sceneId       String?
+  clientName    String?
+  clientEmail   String?
+  currency      String         @default("INR")
+  issueDate     DateTime       @default(now())
+  dueDate       DateTime?
+  subtotal      Float          @default(0)
+  tax           Float          @default(0)
+  discount      Float          @default(0)
+  total         Float          @default(0)
+  status        InvoiceStatus  @default(DRAFT)
+  items         Json           @default("[]")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([sceneId])
+}

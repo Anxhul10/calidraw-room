@@ -1,0 +1,303 @@
+[
+  {
+    "id": "dddda350-3377-45f5-afa6-8365761a60b8",
+    "invoiceNumber": "INV-2026-00161",
+    "title": "Website Redesign",
+    "userId": "user_alpha",
+    "sceneId": null,
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T17:31:36.046Z",
+    "dueDate": null,
+    "subtotal": 5000,
+    "tax": 500,
+    "discount": 200,
+    "total": 5300,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Landing page design",
+        "quantity": 1,
+        "unitPrice": 5000,
+        "subtotal": 5000,
+        "source": "explicit_annotation"
+      },
+      {
+        "description": "Dashboard development",
+        "quantity": 1,
+        "unitPrice": null,
+        "subtotal": null,
+        "source": "visual_inference"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T17:31:36.047Z",
+    "updatedAt": "2026-11-12T17:31:36.047Z"
+  },
+  {
+    "id": "52475886-0eee-4871-91d1-3cd7739f08b3",
+    "invoiceNumber": "INV-2026-0025",
+    "title": "Mobile Banking Redesign",
+    "userId": "user_test_alice",
+    "sceneId": "mobile-banking.excalidraw",
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T17:36:33.499Z",
+    "dueDate": null,
+    "subtotal": 7000,
+    "tax": 700,
+    "discount": 500,
+    "total": 7200,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Auth Flow Design",
+        "quantity": 1,
+        "unitPrice": 3500,
+        "subtotal": 3500,
+        "source": "user"
+      },
+      {
+        "description": "Security Audit",
+        "quantity": 2,
+        "unitPrice": 1000,
+        "subtotal": 2000,
+        "source": "user"
+      },
+      {
+        "description": "Biometric Login Component",
+        "quantity": 1,
+        "unitPrice": 1500,
+        "subtotal": 1500,
+        "source": "user"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T17:36:33.500Z",
+    "updatedAt": "2026-11-12T17:36:33.500Z"
+  },
+  {
+    "id": "5a1f4383-5e0b-4b20-a130-e061cf0a6f84",
+    "invoiceNumber": "INV-2026-00346",
+    "title": "Mobile Banking Redesign",
+    "userId": "user_test_alice",
+    "sceneId": "mobile-banking.excalidraw",
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T17:37:13.358Z",
+    "dueDate": null,
+    "subtotal": 7000,
+    "tax": 700,
+    "discount": 500,
+    "total": 7200,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Auth Flow Design",
+        "quantity": 1,
+        "unitPrice": 3500,
+        "subtotal": 3500,
+        "source": "user"
+      },
+      {
+        "description": "Security Audit",
+        "quantity": 2,
+        "unitPrice": 1000,
+        "subtotal": 2000,
+        "source": "user"
+      },
+      {
+        "description": "Biometric Login Component",
+        "quantity": 1,
+        "unitPrice": 1500,
+        "subtotal": 1500,
+        "source": "user"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T17:37:13.358Z",
+    "updatedAt": "2026-11-12T17:37:13.358Z"
+  },
+  {
+    "id": "bbf7d21c-492e-4c60-9c6e-db61460d9b14",
+    "invoiceNumber": "INV-2026-00490",
+    "title": "Mobile Banking Redesign",
+    "userId": "user_test_alice",
+    "sceneId": "mobile-banking.excalidraw",
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T17:53:10.451Z",
+    "dueDate": null,
+    "subtotal": 7000,
+    "tax": 700,
+    "discount": 500,
+    "total": 7200,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Auth Flow Design",
+        "quantity": 1,
+        "unitPrice": 3500,
+        "subtotal": 3500,
+        "source": "user"
+      },
+      {
+        "description": "Security Audit",
+        "quantity": 2,
+        "unitPrice": 1000,
+        "subtotal": 2000,
+        "source": "user"
+      },
+      {
+        "description": "Biometric Login Component",
+        "quantity": 1,
+        "unitPrice": 1500,
+        "subtotal": 1500,
+        "source": "user"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T17:53:10.451Z",
+    "updatedAt": "2026-11-12T17:53:10.451Z"
+  },
+  {
+    "id": "6dd41d66-2c09-493d-b55e-6f6b743c778a",
+    "invoiceNumber": "INV-2026-00526",
+    "title": "Mobile Banking Redesign",
+    "userId": "user_test_alice",
+    "sceneId": "mobile-banking.excalidraw",
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T17:54:55.227Z",
+    "dueDate": null,
+    "subtotal": 7000,
+    "tax": 700,
+    "discount": 500,
+    "total": 7200,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Auth Flow Design",
+        "quantity": 1,
+        "unitPrice": 3500,
+        "subtotal": 3500,
+        "source": "user"
+      },
+      {
+        "description": "Security Audit",
+        "quantity": 2,
+        "unitPrice": 1000,
+        "subtotal": 2000,
+        "source": "user"
+      },
+      {
+        "description": "Biometric Login Component",
+        "quantity": 1,
+        "unitPrice": 1500,
+        "subtotal": 1500,
+        "source": "user"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T17:54:55.228Z",
+    "updatedAt": "2026-11-12T17:54:55.228Z"
+  },
+  {
+    "id": "1ac80526-d3c5-4b60-a39d-fc765836a285",
+    "invoiceNumber": "INV-2026-00683",
+    "title": "Mobile Banking Redesign",
+    "userId": "user_test_alice",
+    "sceneId": "mobile-banking.excalidraw",
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T17:55:10.028Z",
+    "dueDate": null,
+    "subtotal": 7000,
+    "tax": 700,
+    "discount": 500,
+    "total": 7200,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Auth Flow Design",
+        "quantity": 1,
+        "unitPrice": 3500,
+        "subtotal": 3500,
+        "source": "user"
+      },
+      {
+        "description": "Security Audit",
+        "quantity": 2,
+        "unitPrice": 1000,
+        "subtotal": 2000,
+        "source": "user"
+      },
+      {
+        "description": "Biometric Login Component",
+        "quantity": 1,
+        "unitPrice": 1500,
+        "subtotal": 1500,
+        "source": "user"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T17:55:10.028Z",
+    "updatedAt": "2026-11-12T17:55:10.028Z"
+  },
+  {
+    "id": "e65bb4a4-1dff-4a9a-9985-579a0096234d",
+    "invoiceNumber": "INV-2026-00732",
+    "title": "Mobile Banking Redesign",
+    "userId": "user_test_alice",
+    "sceneId": "mobile-banking.excalidraw",
+    "clientName": "Acme Corporation",
+    "clientEmail": null,
+    "businessName": null,
+    "currency": "USD",
+    "issueDate": "2026-11-12T18:13:01.190Z",
+    "dueDate": null,
+    "subtotal": 7000,
+    "tax": 700,
+    "discount": 500,
+    "total": 7200,
+    "status": "DRAFT",
+    "items": [
+      {
+        "description": "Auth Flow Design",
+        "quantity": 1,
+        "unitPrice": 3500,
+        "subtotal": 3500,
+        "source": "user"
+      },
+      {
+        "description": "Security Audit",
+        "quantity": 2,
+        "unitPrice": 1000,
+        "subtotal": 2000,
+        "source": "user"
+      },
+      {
+        "description": "Biometric Login Component",
+        "quantity": 1,
+        "unitPrice": 1500,
+        "subtotal": 1500,
+        "source": "user"
+      }
+    ],
+    "missingInformation": [],
+    "createdAt": "2026-11-12T18:13:01.190Z",
+    "updatedAt": "2026-11-12T18:13:01.190Z"
+  }
+]
