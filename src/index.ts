@@ -97,6 +97,7 @@ try {
   });
 
   io.on("connection", (socket) => {
+    console.log(`[Socket Connection] Established with id: ${socket.id}`);
     ioDebug("connection established!");
     io.to(`${socket.id}`).emit("init-room");
 
@@ -104,6 +105,7 @@ try {
     setupNegotiationSocketHandlers(io, socket);
 
     socket.on("join-room", async (roomID) => {
+      console.log(`[Socket Room] Socket ${socket.id} joined room: ${roomID}`);
       socketDebug(`${socket.id} has joined ${roomID}`);
       await socket.join(roomID);
       const sockets = await io.in(roomID).fetchSockets();
@@ -118,6 +120,10 @@ try {
         "room-user-change",
         sockets.map((socket) => socket.id),
       );
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log(`[Socket Disconnect] Socket ${socket.id} disconnected: ${reason}`);
     });
 
     socket.on(

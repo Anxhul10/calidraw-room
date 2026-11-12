@@ -17,7 +17,7 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
    * payment:request
    * Host initiates a payment request for selected elements with an initial offer.
    */
-  socket.on("payment:request", (payload: {
+  socket.on("payment:request", async (payload: {
     roomId: string;
     senderName: string;
     selectedElementIds: string[];
@@ -30,13 +30,20 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
       subtotal: number;
     }>;
     message?: string;
-  }) => {
+  }, callback?: (res: any) => void) => {
     try {
       const { roomId, senderName, selectedElementIds, currency, items, message } = payload;
 
       if (!roomId || !Array.isArray(items) || items.length === 0) {
-        socket.emit("payment:error", { message: "Invalid payment request payload" });
+        const errMsg = "Invalid payment request payload";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
         return;
+      }
+
+      // Ensure host socket is part of the room
+      if (!socket.rooms.has(roomId)) {
+        await socket.join(roomId);
       }
 
       // Calculate total securely on server
@@ -89,16 +96,28 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
 
       negotiationRepository.create(record);
 
-      // Broadcast to room
-      io.in(roomId).emit("payment:offer", {
+      // Broadcast incoming payment offer ONLY to other participants (collaborators) in the room
+      socket.to(roomId).emit("payment:offer", {
         negotiationId,
         offer: initialOffer,
         negotiation: record,
       });
 
-      console.log(`[Negotiation] Created negotiation ${negotiationId} in room ${roomId}`);
+      // Send outgoing confirmation / acknowledgement to the host
+      socket.emit("payment:request-sent", {
+        negotiationId,
+        offer: initialOffer,
+        negotiation: record,
+      });
+
+      console.log(`[Negotiation Socket] Event: payment:request | Room: ${roomId} | NegId: ${negotiationId} | Host: ${socket.id} | Amount: ${initialOffer.amount} ${initialOffer.currency}`);
+
+      if (typeof callback === "function") {
+        callback({ ok: true, negotiationId, negotiation: record });
+      }
     } catch (err: any) {
-      console.error("[payment:request error]", err);
+      console.error("[Negotiation Socket] payment:request error:", err);
+      if (typeof callback === "function") callback({ ok: false, error: err.message || "Failed to create payment request" });
       socket.emit("payment:error", { message: err.message || "Failed to create payment request" });
     }
   });
@@ -112,22 +131,34 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
     senderName: string;
     amount: number;
     message?: string;
-  }) => {
+  }, callback?: (res: any) => void) => {
     try {
       const { negotiationId, senderName, amount, message } = payload;
       const neg = negotiationRepository.get(negotiationId);
       if (!neg) {
+        if (typeof callback === "function") callback({ ok: false, error: "Negotiation not found" });
         socket.emit("payment:error", { message: "Negotiation not found" });
         return;
       }
 
       if (neg.status === "ON_HOLD") {
-        socket.emit("payment:error", { message: "Deal is on hold. Counteroffers are not allowed." });
+        const errMsg = "Deal is on hold. Counteroffers are not allowed.";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
         return;
       }
 
       if (neg.status === "AGREED" || neg.status === "PAID" || neg.status === "CANCELLED") {
-        socket.emit("payment:error", { message: `Cannot counteroffer when deal is ${neg.status}` });
+        const errMsg = `Cannot counteroffer when deal is ${neg.status}`;
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
+        return;
+      }
+
+      if (neg.hostSocketId && neg.hostSocketId === socket.id) {
+        const errMsg = "Host cannot counteroffer their own request. Use raise instead.";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
         return;
       }
 
@@ -159,7 +190,8 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
       neg.status = "COUNTEROFFER_RECEIVED";
       negotiationRepository.addOffer(negotiationId, counterOffer);
 
-      io.in(neg.roomId).emit("payment:counteroffer", {
+      // Broadcast incoming counteroffer to host (and other participants)
+      socket.to(neg.roomId).emit("payment:counteroffer", {
         negotiationId,
         offer: counterOffer,
         previousAmount: lastOffer ? lastOffer.amount : null,
@@ -167,9 +199,23 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
         negotiation: neg,
       });
 
-      console.log(`[Negotiation] Counteroffer submitted for ${negotiationId}: ${parsedAmount} ${neg.currency}`);
+      // Send outgoing confirmation to collaborator
+      socket.emit("payment:counteroffer-sent", {
+        negotiationId,
+        offer: counterOffer,
+        previousAmount: lastOffer ? lastOffer.amount : null,
+        difference: lastOffer ? Math.round((parsedAmount - lastOffer.amount) * 100) / 100 : null,
+        negotiation: neg,
+      });
+
+      console.log(`[Negotiation Socket] Event: payment:counteroffer | Room: ${neg.roomId} | NegId: ${negotiationId} | Collaborator: ${socket.id} | Amount: ${parsedAmount} ${neg.currency}`);
+
+      if (typeof callback === "function") {
+        callback({ ok: true, negotiation: neg });
+      }
     } catch (err: any) {
-      console.error("[payment:counteroffer error]", err);
+      console.error("[Negotiation Socket] payment:counteroffer error:", err);
+      if (typeof callback === "function") callback({ ok: false, error: err.message || "Failed to submit counteroffer" });
       socket.emit("payment:error", { message: err.message || "Failed to submit counteroffer" });
     }
   });
@@ -182,17 +228,27 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
     negotiationId: string;
     amount: number;
     message?: string;
-  }) => {
+  }, callback?: (res: any) => void) => {
     try {
       const { negotiationId, amount, message } = payload;
       const neg = negotiationRepository.get(negotiationId);
       if (!neg) {
+        if (typeof callback === "function") callback({ ok: false, error: "Negotiation not found" });
         socket.emit("payment:error", { message: "Negotiation not found" });
         return;
       }
 
       if (neg.status === "ON_HOLD") {
-        socket.emit("payment:error", { message: "Deal is on hold. Resume first." });
+        const errMsg = "Deal is on hold. Resume first.";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
+        return;
+      }
+
+      if (neg.hostSocketId && neg.hostSocketId !== socket.id) {
+        const errMsg = "Only the host can raise the offer price.";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
         return;
       }
 
@@ -218,15 +274,28 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
       neg.status = "OFFER_REQUESTED";
       negotiationRepository.addOffer(negotiationId, newOffer);
 
-      io.in(neg.roomId).emit("payment:raise", {
+      // Collaborator receives updated offer
+      socket.to(neg.roomId).emit("payment:raise", {
         negotiationId,
         offer: newOffer,
         negotiation: neg,
       });
 
-      console.log(`[Negotiation] Host raised offer for ${negotiationId}: ${parsedAmount}`);
+      // Host receives confirmation
+      socket.emit("payment:raise-sent", {
+        negotiationId,
+        offer: newOffer,
+        negotiation: neg,
+      });
+
+      console.log(`[Negotiation Socket] Event: payment:raise | Room: ${neg.roomId} | NegId: ${negotiationId} | Host: ${socket.id} | Amount: ${parsedAmount} ${neg.currency}`);
+
+      if (typeof callback === "function") {
+        callback({ ok: true, negotiation: neg });
+      }
     } catch (err: any) {
-      console.error("[payment:raise error]", err);
+      console.error("[Negotiation Socket] payment:raise error:", err);
+      if (typeof callback === "function") callback({ ok: false, error: err.message || "Failed to raise price" });
       socket.emit("payment:error", { message: err.message || "Failed to raise price" });
     }
   });
@@ -238,23 +307,35 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
   socket.on("payment:accept", (payload: {
     negotiationId: string;
     offerId: string;
-  }) => {
+  }, callback?: (res: any) => void) => {
     try {
       const { negotiationId, offerId } = payload;
       const neg = negotiationRepository.get(negotiationId);
       if (!neg) {
+        if (typeof callback === "function") callback({ ok: false, error: "Negotiation not found" });
         socket.emit("payment:error", { message: "Negotiation not found" });
         return;
       }
 
       if (neg.status === "ON_HOLD") {
-        socket.emit("payment:error", { message: "Deal is on hold. Cannot accept." });
+        const errMsg = "Deal is on hold. Cannot accept.";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
         return;
       }
 
       const targetOffer = neg.offers.find((o) => o.offerId === offerId);
       if (!targetOffer) {
-        socket.emit("payment:error", { message: "Offer not found" });
+        const errMsg = "Offer not found";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
+        return;
+      }
+
+      if (targetOffer.senderSocketId === socket.id) {
+        const errMsg = "You cannot accept your own offer.";
+        if (typeof callback === "function") callback({ ok: false, error: errMsg });
+        socket.emit("payment:error", { message: errMsg });
         return;
       }
 
@@ -263,6 +344,7 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
       neg.agreedAmount = targetOffer.amount;
       negotiationRepository.update(neg);
 
+      // Broadcast immediately to ALL participants in the room
       io.in(neg.roomId).emit("payment:offer-accepted", {
         negotiationId,
         agreedOffer: targetOffer,
@@ -271,9 +353,14 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
         negotiation: neg,
       });
 
-      console.log(`[Negotiation] Deal AGREED for ${negotiationId} at ${targetOffer.amount} ${targetOffer.currency}`);
+      console.log(`[Negotiation Socket] Event: payment:offer-accepted | Room: ${neg.roomId} | NegId: ${negotiationId} | AcceptedBy: ${socket.id} | Amount: ${targetOffer.amount} ${targetOffer.currency}`);
+
+      if (typeof callback === "function") {
+        callback({ ok: true, negotiation: neg });
+      }
     } catch (err: any) {
-      console.error("[payment:accept error]", err);
+      console.error("[Negotiation Socket] payment:accept error:", err);
+      if (typeof callback === "function") callback({ ok: false, error: err.message || "Failed to accept offer" });
       socket.emit("payment:error", { message: err.message || "Failed to accept offer" });
     }
   });
@@ -282,31 +369,56 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
    * payment:hold / payment:resume
    * Host pauses or resumes negotiation.
    */
-  socket.on("payment:hold", (payload: { negotiationId: string }) => {
+  socket.on("payment:hold", (payload: { negotiationId: string }, callback?: (res: any) => void) => {
     const neg = negotiationRepository.get(payload.negotiationId);
-    if (!neg) return;
+    if (!neg) {
+      if (typeof callback === "function") callback({ ok: false, error: "Negotiation not found" });
+      return;
+    }
+    if (neg.hostSocketId && neg.hostSocketId !== socket.id) {
+      const errMsg = "Only the host can pause negotiation.";
+      if (typeof callback === "function") callback({ ok: false, error: errMsg });
+      socket.emit("payment:error", { message: errMsg });
+      return;
+    }
     neg.status = "ON_HOLD";
     negotiationRepository.update(neg);
     io.in(neg.roomId).emit("payment:hold", { negotiationId: neg.negotiationId, negotiation: neg });
+    console.log(`[Negotiation Socket] Event: payment:hold | Room: ${neg.roomId} | NegId: ${neg.negotiationId} | Host: ${socket.id}`);
+    if (typeof callback === "function") callback({ ok: true, negotiation: neg });
   });
 
-  socket.on("payment:resume", (payload: { negotiationId: string }) => {
+  socket.on("payment:resume", (payload: { negotiationId: string }, callback?: (res: any) => void) => {
     const neg = negotiationRepository.get(payload.negotiationId);
-    if (!neg) return;
+    if (!neg) {
+      if (typeof callback === "function") callback({ ok: false, error: "Negotiation not found" });
+      return;
+    }
+    if (neg.hostSocketId && neg.hostSocketId !== socket.id) {
+      const errMsg = "Only the host can resume negotiation.";
+      if (typeof callback === "function") callback({ ok: false, error: errMsg });
+      socket.emit("payment:error", { message: errMsg });
+      return;
+    }
     // Resume to the previous active status
     const lastOffer = neg.offers[neg.offers.length - 1];
     neg.status = lastOffer?.senderRole === "collaborator" ? "COUNTEROFFER_RECEIVED" : "OFFER_REQUESTED";
     negotiationRepository.update(neg);
     io.in(neg.roomId).emit("payment:resume", { negotiationId: neg.negotiationId, negotiation: neg });
+    console.log(`[Negotiation Socket] Event: payment:resume | Room: ${neg.roomId} | NegId: ${neg.negotiationId} | Host: ${socket.id}`);
+    if (typeof callback === "function") callback({ ok: true, negotiation: neg });
   });
 
   /**
    * payment:cancel / payment:decline
    * Either party cancels or declines.
    */
-  socket.on("payment:cancel", (payload: { negotiationId: string; reason?: string }) => {
+  socket.on("payment:cancel", (payload: { negotiationId: string; reason?: string }, callback?: (res: any) => void) => {
     const neg = negotiationRepository.get(payload.negotiationId);
-    if (!neg) return;
+    if (!neg) {
+      if (typeof callback === "function") callback({ ok: false, error: "Negotiation not found" });
+      return;
+    }
     neg.status = "CANCELLED";
     negotiationRepository.update(neg);
     io.in(neg.roomId).emit("payment:cancel", {
@@ -314,16 +426,22 @@ export function setupNegotiationSocketHandlers(io: SocketIO, socket: Socket) {
       reason: payload.reason || "Deal cancelled",
       negotiation: neg,
     });
+    console.log(`[Negotiation Socket] Event: payment:cancel | Room: ${neg.roomId} | NegId: ${neg.negotiationId} | CancelledBy: ${socket.id}`);
+    if (typeof callback === "function") callback({ ok: true, negotiation: neg });
   });
 
   /**
    * payment:sync
    * Request latest deal status for this room (useful on join/reconnect)
    */
-  socket.on("payment:sync", (payload: { roomId: string }) => {
+  socket.on("payment:sync", (payload: { roomId: string }, callback?: (res: any) => void) => {
     const neg = negotiationRepository.getLatestByRoomId(payload.roomId);
+    console.log(`[Negotiation Socket] Event: payment:sync | Room: ${payload.roomId} | Socket: ${socket.id} | Found: ${!!neg}`);
     if (neg) {
       socket.emit("payment:status-updated", { negotiation: neg });
+      if (typeof callback === "function") callback({ ok: true, negotiation: neg });
+    } else {
+      if (typeof callback === "function") callback({ ok: true, negotiation: null });
     }
   });
 }
