@@ -128,6 +128,47 @@ export async function getPaypalAccessToken(forceRefresh = false): Promise<string
   return cachedToken as string;
 }
 
+export function extractInvoiceId(data: any, locationHeader?: string | null): string | null {
+  if (!data && !locationHeader) return null;
+
+  // 1. Direct id fields
+  if (typeof data?.id === "string" && data.id.trim()) {
+    return data.id.trim();
+  }
+  if (typeof data?.invoice_id === "string" && data.invoice_id.trim()) {
+    return data.invoice_id.trim();
+  }
+  if (typeof data?.invoice?.id === "string" && data.invoice.id.trim()) {
+    return data.invoice.id.trim();
+  }
+
+  // 2. Location header (e.g. https://api-m.sandbox.paypal.com/v2/invoicing/invoices/INV2-...)
+  const loc = locationHeader || data?._location;
+  if (typeof loc === "string") {
+    const match = loc.match(/\/invoices\/([A-Za-z0-9-_]+)/);
+    if (match && match[1]) return match[1];
+  }
+
+  // 3. HATEOAS links in body
+  if (Array.isArray(data?.links)) {
+    const selfLink = data.links.find(
+      (l: any) => l.rel === "self" || l.rel === "send" || l.rel === "payer-view"
+    );
+    if (selfLink?.href) {
+      const match = selfLink.href.match(/\/invoices\/([A-Za-z0-9-_]+)/);
+      if (match && match[1]) return match[1];
+    }
+  }
+
+  // 4. href property
+  if (typeof data?.href === "string") {
+    const match = data.href.match(/\/invoices\/([A-Za-z0-9-_]+)/);
+    if (match && match[1]) return match[1];
+  }
+
+  return null;
+}
+
 export async function paypalRequest<T = any>(
   path: string,
   options: RequestInit = {},
@@ -142,6 +183,7 @@ export async function paypalRequest<T = any>(
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
         Accept: "application/json",
+        Prefer: "return=representation",
         ...(options.headers || {}),
       },
     });
@@ -161,12 +203,22 @@ export async function paypalRequest<T = any>(
     response.headers.get("x-paypal-debug-id") ||
     undefined;
 
+  const locationHeader = response.headers.get("location");
+
   const raw = await response.text();
   let data: any = {};
   try {
     data = raw ? JSON.parse(raw) : {};
   } catch {
     data = { message: raw };
+  }
+
+  if (data && typeof data === "object") {
+    data._httpStatus = response.status;
+    data._debugId = debugId;
+    if (locationHeader) {
+      data._location = locationHeader;
+    }
   }
 
   if (!response.ok) {
@@ -289,28 +341,75 @@ export async function createPaypalInvoice(params: CreatePaypalInvoiceParams) {
     );
   }
 
-  const paypalInvoice = await paypalRequest<any>(
+  const rawResponse = await paypalRequest<any>(
     "/v2/invoicing/invoices",
     {
       method: "POST",
+      headers: {
+        Prefer: "return=representation",
+      },
       body: JSON.stringify(payload),
     },
     "createPaypalInvoice"
   );
 
+  const invoiceId = extractInvoiceId(rawResponse, rawResponse?._location);
+
+  if (!invoiceId) {
+    console.error("[PayPal Error] Could not extract invoice ID from response:", JSON.stringify(rawResponse));
+    throw new Error(
+      "PayPal invoice was created (HTTP 201), but an invoice ID could not be extracted from the response."
+    );
+  }
+
+  // If minimal response was returned and detail/metadata is missing, retrieve the full representation
+  let invoiceData = rawResponse;
+  if (!invoiceData.detail || !invoiceData.detail.metadata) {
+    try {
+      const fullInvoice = await getPaypalInvoice(invoiceId);
+      if (fullInvoice && (fullInvoice.id || fullInvoice.detail)) {
+        invoiceData = fullInvoice;
+      }
+    } catch (fetchErr: any) {
+      console.warn(`[PayPal] Could not fetch representation for draft invoice ${invoiceId}:`, fetchErr.message);
+    }
+  }
+
+  const payerViewUrl =
+    invoiceData.detail?.metadata?.recipient_view_url ||
+    invoiceData.links?.find((l: any) => l.rel === "payer-view")?.href ||
+    null;
+
+  const invoicerViewUrl =
+    invoiceData.detail?.metadata?.invoicer_view_url ||
+    invoiceData.links?.find((l: any) => l.rel === "invoicer-view" || l.rel === "self")?.href ||
+    null;
+
   return {
-    paypalInvoiceId: paypalInvoice.id,
-    status: paypalInvoice.status,
-    invoiceNumber: paypalInvoice.detail?.invoice_number || null,
-    raw: paypalInvoice,
+    paypalInvoiceId: invoiceId,
+    status: invoiceData.status || "DRAFT",
+    invoiceNumber: invoiceData.detail?.invoice_number || null,
+    recipientViewUrl: payerViewUrl,
+    payerViewUrl,
+    invoicerViewUrl,
+    raw: invoiceData,
   };
 }
 
 export async function sendPaypalInvoice(paypalInvoiceId: string) {
+  if (!paypalInvoiceId || !paypalInvoiceId.trim()) {
+    throw new Error("sendPaypalInvoice requires a valid paypalInvoiceId");
+  }
+
+  const trimmedId = paypalInvoiceId.trim();
+
   const sendResult = await paypalRequest<any>(
-    `/v2/invoicing/invoices/${encodeURIComponent(paypalInvoiceId)}/send`,
+    `/v2/invoicing/invoices/${encodeURIComponent(trimmedId)}/send`,
     {
       method: "POST",
+      headers: {
+        Prefer: "return=representation",
+      },
       body: JSON.stringify({
         send_to_recipient: true,
         send_to_invoicer: true,
@@ -320,7 +419,7 @@ export async function sendPaypalInvoice(paypalInvoiceId: string) {
   );
 
   const invoice = await paypalRequest<any>(
-    `/v2/invoicing/invoices/${encodeURIComponent(paypalInvoiceId)}`,
+    `/v2/invoicing/invoices/${encodeURIComponent(trimmedId)}`,
     { method: "GET" },
     "getPaypalInvoice"
   );
@@ -336,16 +435,25 @@ export async function sendPaypalInvoice(paypalInvoiceId: string) {
     invoice?.metadata?.recipient_view_url ||
     null;
 
+  const invoicerLink =
+    invoice?.detail?.metadata?.invoicer_view_url ||
+    invoice?.links?.find((link: any) => link.rel === "invoicer-view" || link.rel === "self")?.href ||
+    invoice?.metadata?.invoicer_view_url ||
+    null;
+
   if (!payerLink) {
     console.warn(
-      `[PayPal Warning] Payer-view URL not returned by PayPal for invoice ${paypalInvoiceId}. Status: ${invoice.status}`
+      `[PayPal Warning] Payer-view URL not returned by PayPal for invoice ${trimmedId}. Status: ${invoice.status}`
     );
   }
 
   return {
-    paypalInvoiceId: invoice.id,
+    paypalInvoiceId: invoice.id || trimmedId,
     status: invoice.status || "SENT",
+    invoiceNumber: invoice.detail?.invoice_number || null,
     recipientViewUrl: payerLink,
+    payerViewUrl: payerLink,
+    invoicerViewUrl: invoicerLink,
     invoice,
   };
 }

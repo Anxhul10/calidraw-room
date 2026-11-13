@@ -36,13 +36,19 @@ export interface NegotiationOffer {
 }
 
 export interface NegotiationInvoice {
+  negotiationId?: string;
+  roomId?: string;
   paypalInvoiceId: string;
   invoiceNumber: string | null;
   status: string; // DRAFT, SENT, PAID, PARTIALLY_PAID, etc.
+  invoiceStatus?: string;
   recipientViewUrl: string | null;
+  payerViewUrl?: string | null;
+  invoicerViewUrl?: string | null;
   amount: number;
   currency: string;
   createdAt: string;
+  updatedAt?: string;
   paidAt?: string | null;
 }
 
@@ -118,7 +124,20 @@ function saveNegotiationsToFile() {
 export const negotiationRepository = {
   get(negotiationId: string): NegotiationRecord | null {
     loadNegotiationsFromFile();
-    return memoryNegotiations.get(negotiationId) || null;
+    let neg = memoryNegotiations.get(negotiationId);
+    if (!neg) {
+      try {
+        if (fs.existsSync(NEGOTIATIONS_FILE)) {
+          const content = fs.readFileSync(NEGOTIATIONS_FILE, "utf-8");
+          const list: NegotiationRecord[] = JSON.parse(content);
+          memoryNegotiations = new Map(list.map((n) => [n.negotiationId, n]));
+          neg = memoryNegotiations.get(negotiationId);
+        }
+      } catch (err) {
+        // ignore error refreshing from disk
+      }
+    }
+    return neg || null;
   },
 
   getActiveByRoomId(roomId: string): NegotiationRecord | null {

@@ -93,18 +93,20 @@ export function createNegotiationRoutes(io: SocketIO): Router {
         return res.status(404).json({ success: false, error: "Negotiation not found" });
       }
 
+      // If an invoice has already been created for this negotiation, return it idempotently
+      if (negotiation.invoice && negotiation.invoice.paypalInvoiceId) {
+        return res.status(200).json({
+          success: true,
+          message: "Invoice already created for this negotiation.",
+          invoice: negotiation.invoice,
+          negotiation,
+        });
+      }
+
       if (negotiation.status !== "AGREED") {
         return res.status(400).json({
           success: false,
           error: `Cannot create invoice for negotiation in status ${negotiation.status}. Deal must be AGREED.`,
-        });
-      }
-
-      if (negotiation.invoice && negotiation.invoice.paypalInvoiceId) {
-        return res.status(400).json({
-          success: false,
-          error: "An invoice has already been created for this negotiation.",
-          invoice: negotiation.invoice,
         });
       }
 
@@ -147,6 +149,9 @@ export function createNegotiationRoutes(io: SocketIO): Router {
             paypalInvoiceId: randomId,
             status: "DRAFT",
             invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+            recipientViewUrl: null,
+            payerViewUrl: null,
+            invoicerViewUrl: null,
             raw: { id: randomId },
           };
         } else {
@@ -169,15 +174,28 @@ export function createNegotiationRoutes(io: SocketIO): Router {
         }
       }
 
+      if (!paypalResult.paypalInvoiceId) {
+        return res.status(502).json({
+          success: false,
+          error: "PayPal invoice was created, but no valid invoice ID could be determined from the response.",
+        });
+      }
+
       negotiation.status = "INVOICE_CREATED";
       negotiation.invoice = {
+        negotiationId: negotiation.negotiationId,
+        roomId: negotiation.roomId,
         paypalInvoiceId: paypalResult.paypalInvoiceId,
         invoiceNumber: paypalResult.invoiceNumber,
-        status: paypalResult.status,
-        recipientViewUrl: null,
+        status: paypalResult.status || "DRAFT",
+        invoiceStatus: paypalResult.status || "DRAFT",
+        recipientViewUrl: paypalResult.recipientViewUrl || paypalResult.payerViewUrl || null,
+        payerViewUrl: paypalResult.payerViewUrl || paypalResult.recipientViewUrl || null,
+        invoicerViewUrl: paypalResult.invoicerViewUrl || null,
         amount: agreedOffer.amount,
         currency: agreedOffer.currency,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
       negotiationRepository.update(negotiation);
@@ -203,6 +221,8 @@ export function createNegotiationRoutes(io: SocketIO): Router {
   /**
    * POST /api/negotiation/:negotiationId/send-invoice
    * Host sends the created invoice to the collaborator.
+   * If a draft invoice already exists, it sends that draft.
+   * If no invoice exists yet, it creates the draft invoice first, persists it, and then sends it.
    */
   router.post("/:negotiationId/send-invoice", async (req: Request, res: Response) => {
     try {
@@ -214,56 +234,144 @@ export function createNegotiationRoutes(io: SocketIO): Router {
         return res.status(404).json({ success: false, error: "Negotiation not found" });
       }
 
-      if (!negotiation.invoice || !negotiation.invoice.paypalInvoiceId) {
-        return res.status(400).json({ success: false, error: "No invoice created yet" });
-      }
-
       if (senderSocketId && negotiation.hostSocketId && senderSocketId !== negotiation.hostSocketId) {
         return res.status(403).json({ success: false, error: "Only the host can send the invoice" });
       }
 
       const allowMock = process.env.PAYPAL_MOCK === "true" || process.env.ALLOW_MOCK_PAYPAL === "true";
+
+      // If no invoice was created yet, but deal is AGREED, create the draft invoice first!
+      if (!negotiation.invoice || !negotiation.invoice.paypalInvoiceId) {
+        if (negotiation.status !== "AGREED") {
+          return res.status(400).json({
+            success: false,
+            error: `Cannot send invoice: Deal is in status ${negotiation.status} and no invoice was created yet. Deal must be AGREED.`,
+          });
+        }
+
+        const agreedOffer = negotiation.offers.find((o) => o.status === "ACCEPTED") ||
+          negotiation.offers[negotiation.offers.length - 1];
+
+        if (!agreedOffer || !Array.isArray(agreedOffer.items) || agreedOffer.items.length === 0) {
+          return res.status(400).json({ success: false, error: "No agreed line items found to create invoice" });
+        }
+
+        console.info(`[Negotiation] Creating draft invoice on-demand for ${negotiationId} before sending...`);
+
+        let draftResult;
+        try {
+          draftResult = await createPaypalInvoice({
+            sellerName: negotiation.hostName || "Host Seller",
+            customerName: negotiation.collaboratorName || "Collaborator",
+            customerEmail: "buyer@example.com",
+            currency: agreedOffer.currency || negotiation.currency || "USD",
+            items: agreedOffer.items.map((it) => ({
+              description: it.description,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+            })),
+          });
+        } catch (createErr: any) {
+          if (allowMock) {
+            const randomId = `INV2-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            draftResult = {
+              paypalInvoiceId: randomId,
+              status: "DRAFT",
+              invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+              recipientViewUrl: null,
+              payerViewUrl: null,
+              invoicerViewUrl: null,
+              raw: { id: randomId },
+            };
+          } else {
+            console.error(`[PayPal Error] Failed to create draft invoice on send:`, createErr.message);
+            const statusCode =
+              typeof createErr.status === "number" && createErr.status >= 400 && createErr.status < 600
+                ? createErr.status
+                : 502;
+            return res.status(statusCode).json({
+              success: false,
+              error: `Failed to create draft invoice: ${createErr.message}`,
+              name: createErr.name || "PAYPAL_ERROR",
+              debugId: createErr.debugId || null,
+            });
+          }
+        }
+
+        negotiation.status = "INVOICE_CREATED";
+        negotiation.invoice = {
+          negotiationId: negotiation.negotiationId,
+          roomId: negotiation.roomId,
+          paypalInvoiceId: draftResult.paypalInvoiceId,
+          invoiceNumber: draftResult.invoiceNumber,
+          status: draftResult.status || "DRAFT",
+          invoiceStatus: draftResult.status || "DRAFT",
+          recipientViewUrl: draftResult.recipientViewUrl || draftResult.payerViewUrl || null,
+          payerViewUrl: draftResult.payerViewUrl || draftResult.recipientViewUrl || null,
+          invoicerViewUrl: draftResult.invoicerViewUrl || null,
+          amount: agreedOffer.amount,
+          currency: agreedOffer.currency,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        negotiationRepository.update(negotiation);
+      }
+
+      // Safe send: Re-use the existing draft invoice ID (NO DUPLICATES)
+      const invoiceIdToSend = negotiation.invoice.paypalInvoiceId;
       let sendResult;
 
       try {
-        sendResult = await sendPaypalInvoice(negotiation.invoice.paypalInvoiceId);
+        sendResult = await sendPaypalInvoice(invoiceIdToSend);
       } catch (paypalErr: any) {
         if (allowMock) {
           console.warn(`[PayPal Mock] Using fallback URL for local testing (PAYPAL_MOCK=true): ${paypalErr.message}`);
           sendResult = {
-            paypalInvoiceId: negotiation.invoice.paypalInvoiceId,
+            paypalInvoiceId: invoiceIdToSend,
             status: "SENT",
-            recipientViewUrl: `https://www.sandbox.paypal.com/invoice/p/#${negotiation.invoice.paypalInvoiceId}`,
+            recipientViewUrl: `https://www.sandbox.paypal.com/invoice/p/#${invoiceIdToSend}`,
+            payerViewUrl: `https://www.sandbox.paypal.com/invoice/p/#${invoiceIdToSend}`,
+            invoicerViewUrl: null,
           };
         } else {
           console.error(
-            `[PayPal Send Error] Failed to send invoice ${negotiation.invoice.paypalInvoiceId}:`,
+            `[PayPal Send Error] Draft invoice ${invoiceIdToSend} exists, but sending failed:`,
             paypalErr.message,
             paypalErr.debugId ? `(DebugID: ${paypalErr.debugId})` : ""
           );
+          // Draft invoice is preserved in DRAFT state so user can safely retry sending
           const statusCode =
             typeof paypalErr.status === "number" && paypalErr.status >= 400 && paypalErr.status < 600
               ? paypalErr.status
               : 502;
           return res.status(statusCode).json({
             success: false,
-            error: paypalErr.message || "Failed to send PayPal invoice",
-            name: paypalErr.name || "PAYPAL_ERROR",
+            error: `Draft invoice ${invoiceIdToSend} was created, but sending failed: ${paypalErr.message}. You can safely retry sending.`,
+            name: paypalErr.name || "PAYPAL_SEND_ERROR",
             debugId: paypalErr.debugId || null,
+            invoice: negotiation.invoice,
+            canRetry: true,
           });
         }
       }
 
-      if (!sendResult.recipientViewUrl && !allowMock) {
+      const effectivePayerUrl = sendResult.payerViewUrl || sendResult.recipientViewUrl;
+      if (!effectivePayerUrl && !allowMock) {
         return res.status(502).json({
           success: false,
           error: "PayPal invoice was sent, but PayPal did not return a valid payer-facing view URL.",
+          invoice: negotiation.invoice,
         });
       }
 
       negotiation.status = "PAYMENT_PENDING";
       negotiation.invoice.status = sendResult.status || "SENT";
-      negotiation.invoice.recipientViewUrl = sendResult.recipientViewUrl;
+      negotiation.invoice.invoiceStatus = sendResult.status || "SENT";
+      negotiation.invoice.recipientViewUrl = effectivePayerUrl;
+      negotiation.invoice.payerViewUrl = effectivePayerUrl;
+      negotiation.invoice.invoicerViewUrl = sendResult.invoicerViewUrl || negotiation.invoice.invoicerViewUrl || null;
+      negotiation.invoice.updatedAt = new Date().toISOString();
 
       negotiationRepository.update(negotiation);
 

@@ -2613,5 +2613,472 @@
     "createdAt": "2026-11-12T20:40:40.089Z",
     "updatedAt": "2026-11-12T20:40:40.092Z",
     "agreedAmount": 200
+  },
+  {
+    "negotiationId": "neg_1794519707431_1b105c6d",
+    "roomId": "test_negotiation_room_1",
+    "hostSocketId": "E_GPDGn1HZPwGJDEAAAA",
+    "hostName": "Alice Host",
+    "selectedElementIds": [
+      "elem_1",
+      "elem_2"
+    ],
+    "currentOfferId": "off_1794519709852_975d54bb",
+    "status": "PAID",
+    "currency": "USD",
+    "offers": [
+      {
+        "offerId": "off_1794519707432_638c5fc8",
+        "negotiationId": "neg_1794519707431_1b105c6d",
+        "senderRole": "host",
+        "senderSocketId": "E_GPDGn1HZPwGJDEAAAA",
+        "senderName": "Alice Host",
+        "amount": 600,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "elem_1",
+            "description": "Design System",
+            "quantity": 1,
+            "unitPrice": 300,
+            "subtotal": 300
+          },
+          {
+            "componentId": "elem_2",
+            "description": "Mobile Prototype",
+            "quantity": 2,
+            "unitPrice": 150,
+            "subtotal": 300
+          }
+        ],
+        "message": "Here are the completed UI components.",
+        "createdAt": "2026-11-12T21:41:47.432Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519708048_6538c7c7",
+        "negotiationId": "neg_1794519707431_1b105c6d",
+        "senderRole": "collaborator",
+        "senderSocketId": "Ps3cZPvzZIU1O05xAAAB",
+        "senderName": "Bob Collaborator",
+        "amount": 450,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "elem_1",
+            "description": "Design System",
+            "quantity": 1,
+            "unitPrice": 300,
+            "subtotal": 300
+          },
+          {
+            "componentId": "elem_2",
+            "description": "Mobile Prototype",
+            "quantity": 2,
+            "unitPrice": 150,
+            "subtotal": 300
+          }
+        ],
+        "message": "Could we do $450 for the package?",
+        "createdAt": "2026-11-12T21:41:48.048Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519709852_975d54bb",
+        "negotiationId": "neg_1794519707431_1b105c6d",
+        "senderRole": "host",
+        "senderSocketId": "E_GPDGn1HZPwGJDEAAAA",
+        "senderName": "Alice Host",
+        "amount": 500,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "elem_1",
+            "description": "Design System",
+            "quantity": 1,
+            "unitPrice": 300,
+            "subtotal": 300
+          },
+          {
+            "componentId": "elem_2",
+            "description": "Mobile Prototype",
+            "quantity": 2,
+            "unitPrice": 150,
+            "subtotal": 300
+          }
+        ],
+        "message": "I can meet you in the middle at $500.",
+        "createdAt": "2026-11-12T21:41:49.852Z",
+        "status": "ACCEPTED"
+      }
+    ],
+    "payments": [
+      {
+        "eventId": "WH-EVENT-1794519711071",
+        "paypalInvoiceId": "INV2-1794519711064-9161",
+        "status": "PAID",
+        "amountReceived": 500,
+        "currency": "USD",
+        "verifiedAt": "2026-11-12T21:41:51.073Z"
+      }
+    ],
+    "createdAt": "2026-11-12T21:41:47.432Z",
+    "updatedAt": "2026-11-12T21:41:51.073Z",
+    "collaboratorSocketId": "Ps3cZPvzZIU1O05xAAAB",
+    "collaboratorName": "Bob Collaborator",
+    "agreedAmount": 500,
+    "invoice": {
+      "negotiationId": "neg_1794519707431_1b105c6d",
+      "roomId": "test_negotiation_room_1",
+      "paypalInvoiceId": "INV2-1794519711064-9161",
+      "invoiceNumber": "INV-2026-4549",
+      "status": "PAID",
+      "invoiceStatus": "SENT",
+      "recipientViewUrl": "https://www.sandbox.paypal.com/invoice/p/#INV2-1794519711064-9161",
+      "payerViewUrl": "https://www.sandbox.paypal.com/invoice/p/#INV2-1794519711064-9161",
+      "invoicerViewUrl": null,
+      "amount": 500,
+      "currency": "USD",
+      "createdAt": "2026-11-12T21:41:51.064Z",
+      "updatedAt": "2026-11-12T21:41:51.069Z",
+      "paidAt": "2026-11-12T21:41:51.073Z"
+    }
+  },
+  {
+    "negotiationId": "neg_1794519713605_db8b0e02",
+    "roomId": "realtime_sync_room_999",
+    "hostSocketId": "mY2c2gLKGcRTGWI4AAAA",
+    "hostName": "Host Alice",
+    "selectedElementIds": [
+      "wireframe_box_1"
+    ],
+    "currentOfferId": "off_1794519713605_e92fc6df",
+    "status": "AGREED",
+    "currency": "USD",
+    "offers": [
+      {
+        "offerId": "off_1794519713605_e92fc6df",
+        "negotiationId": "neg_1794519713605_db8b0e02",
+        "senderRole": "host",
+        "senderSocketId": "mY2c2gLKGcRTGWI4AAAA",
+        "senderName": "Host Alice",
+        "amount": 750,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "wireframe_box_1",
+            "description": "Design Sprint Deliverables",
+            "quantity": 1,
+            "unitPrice": 750,
+            "subtotal": 750
+          }
+        ],
+        "message": "Payment requested for design deliverables.",
+        "createdAt": "2026-11-12T21:41:53.605Z",
+        "status": "ACCEPTED"
+      }
+    ],
+    "payments": [],
+    "createdAt": "2026-11-12T21:41:53.605Z",
+    "updatedAt": "2026-11-12T21:41:53.855Z",
+    "agreedAmount": 750
+  },
+  {
+    "negotiationId": "neg_1794519714309_869cee59",
+    "roomId": "realtime_sync_room_888",
+    "hostSocketId": "mY2c2gLKGcRTGWI4AAAA",
+    "hostName": "Host Alice",
+    "selectedElementIds": [
+      "element_hero"
+    ],
+    "currentOfferId": "off_1794519715415_8fefea9a",
+    "status": "PAID",
+    "currency": "USD",
+    "offers": [
+      {
+        "offerId": "off_1794519714309_cea31d03",
+        "negotiationId": "neg_1794519714309_869cee59",
+        "senderRole": "host",
+        "senderSocketId": "mY2c2gLKGcRTGWI4AAAA",
+        "senderName": "Host Alice",
+        "amount": 1000,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "element_hero",
+            "description": "Hero Graphic",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "subtotal": 1000
+          }
+        ],
+        "message": "",
+        "createdAt": "2026-11-12T21:41:54.309Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519714312_c12aea44",
+        "negotiationId": "neg_1794519714309_869cee59",
+        "senderRole": "collaborator",
+        "senderSocketId": "82TzY8X-C5Y4_Z4xAAAB",
+        "senderName": "Collaborator Bob",
+        "amount": 800,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "element_hero",
+            "description": "Hero Graphic",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "subtotal": 1000
+          }
+        ],
+        "message": "Can we do $800?",
+        "createdAt": "2026-11-12T21:41:54.312Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519714512_9689bddd",
+        "negotiationId": "neg_1794519714309_869cee59",
+        "senderRole": "host",
+        "senderSocketId": "mY2c2gLKGcRTGWI4AAAA",
+        "senderName": "Host Alice",
+        "amount": 900,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "element_hero",
+            "description": "Hero Graphic",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "subtotal": 1000
+          }
+        ],
+        "message": "Split the difference at $900.",
+        "createdAt": "2026-11-12T21:41:54.512Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519715415_8fefea9a",
+        "negotiationId": "neg_1794519714309_869cee59",
+        "senderRole": "host",
+        "senderSocketId": "mY2c2gLKGcRTGWI4AAAA",
+        "senderName": "Host Alice",
+        "amount": 950,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "element_hero",
+            "description": "Hero Graphic",
+            "quantity": 1,
+            "unitPrice": 1000,
+            "subtotal": 1000
+          }
+        ],
+        "message": "",
+        "createdAt": "2026-11-12T21:41:55.415Z",
+        "status": "ACCEPTED"
+      }
+    ],
+    "payments": [
+      {
+        "eventId": "WH-REALTIME-1794519715651",
+        "paypalInvoiceId": "INV2-1794519715639-1995",
+        "status": "PAID",
+        "amountReceived": 950,
+        "currency": "USD",
+        "verifiedAt": "2026-11-12T21:41:55.653Z"
+      }
+    ],
+    "createdAt": "2026-11-12T21:41:54.309Z",
+    "updatedAt": "2026-11-12T21:41:55.653Z",
+    "collaboratorSocketId": "82TzY8X-C5Y4_Z4xAAAB",
+    "collaboratorName": "Collaborator Bob",
+    "agreedAmount": 950,
+    "invoice": {
+      "negotiationId": "neg_1794519714309_869cee59",
+      "roomId": "realtime_sync_room_888",
+      "paypalInvoiceId": "INV2-1794519715639-1995",
+      "invoiceNumber": "INV-2026-6826",
+      "status": "PAID",
+      "invoiceStatus": "SENT",
+      "recipientViewUrl": "https://www.sandbox.paypal.com/invoice/p/#INV2-1794519715639-1995",
+      "payerViewUrl": "https://www.sandbox.paypal.com/invoice/p/#INV2-1794519715639-1995",
+      "invoicerViewUrl": null,
+      "amount": 950,
+      "currency": "USD",
+      "createdAt": "2026-11-12T21:41:55.639Z",
+      "updatedAt": "2026-11-12T21:41:55.649Z",
+      "paidAt": "2026-11-12T21:41:55.653Z"
+    }
+  },
+  {
+    "negotiationId": "neg_1794519718187_c4de3e7d",
+    "roomId": "two_session_room_101",
+    "hostSocketId": "2_rcx7s7hJNWHu1tAAAA",
+    "hostName": "Alice Host",
+    "selectedElementIds": [
+      "card_header_1",
+      "canvas_diagram_2"
+    ],
+    "currentOfferId": "off_1794519719404_9460a9e6",
+    "status": "PAID",
+    "currency": "USD",
+    "offers": [
+      {
+        "offerId": "off_1794519718187_706de98c",
+        "negotiationId": "neg_1794519718187_c4de3e7d",
+        "senderRole": "host",
+        "senderSocketId": "2_rcx7s7hJNWHu1tAAAA",
+        "senderName": "Alice Host",
+        "amount": 600,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "card_header_1",
+            "description": "System Architecture Diagram",
+            "quantity": 1,
+            "unitPrice": 400,
+            "subtotal": 400
+          },
+          {
+            "componentId": "canvas_diagram_2",
+            "description": "Component Specs",
+            "quantity": 1,
+            "unitPrice": 200,
+            "subtotal": 200
+          }
+        ],
+        "message": "Here are the completed architecture drawings for payment.",
+        "createdAt": "2026-11-12T21:41:58.187Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519718803_3c5ed3a8",
+        "negotiationId": "neg_1794519718187_c4de3e7d",
+        "senderRole": "collaborator",
+        "senderSocketId": "v9K_4-PXvjBzJ7MqAAAB",
+        "senderName": "Bob Collaborator",
+        "amount": 520,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "card_header_1",
+            "description": "System Architecture Diagram",
+            "quantity": 1,
+            "unitPrice": 400,
+            "subtotal": 400
+          },
+          {
+            "componentId": "canvas_diagram_2",
+            "description": "Component Specs",
+            "quantity": 1,
+            "unitPrice": 200,
+            "subtotal": 200
+          }
+        ],
+        "message": "Could we do $520 for both deliverables?",
+        "createdAt": "2026-11-12T21:41:58.803Z",
+        "status": "SUPERSEDED"
+      },
+      {
+        "offerId": "off_1794519719404_9460a9e6",
+        "negotiationId": "neg_1794519718187_c4de3e7d",
+        "senderRole": "host",
+        "senderSocketId": "2_rcx7s7hJNWHu1tAAAA",
+        "senderName": "Alice Host",
+        "amount": 550,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "card_header_1",
+            "description": "System Architecture Diagram",
+            "quantity": 1,
+            "unitPrice": 400,
+            "subtotal": 400
+          },
+          {
+            "componentId": "canvas_diagram_2",
+            "description": "Component Specs",
+            "quantity": 1,
+            "unitPrice": 200,
+            "subtotal": 200
+          }
+        ],
+        "message": "Final deal: $550 for everything including source files.",
+        "createdAt": "2026-11-12T21:41:59.404Z",
+        "status": "ACCEPTED"
+      }
+    ],
+    "payments": [
+      {
+        "eventId": "WH-TEST-1794519720641",
+        "paypalInvoiceId": "INV2-1794519720626-4565",
+        "status": "PAID",
+        "amountReceived": 550,
+        "currency": "USD",
+        "verifiedAt": "2026-11-12T21:42:00.645Z"
+      }
+    ],
+    "createdAt": "2026-11-12T21:41:58.187Z",
+    "updatedAt": "2026-11-12T21:42:00.645Z",
+    "collaboratorSocketId": "v9K_4-PXvjBzJ7MqAAAB",
+    "collaboratorName": "Bob Collaborator",
+    "agreedAmount": 550,
+    "invoice": {
+      "negotiationId": "neg_1794519718187_c4de3e7d",
+      "roomId": "two_session_room_101",
+      "paypalInvoiceId": "INV2-1794519720626-4565",
+      "invoiceNumber": "INV-2026-1309",
+      "status": "PAID",
+      "invoiceStatus": "SENT",
+      "recipientViewUrl": "https://www.sandbox.paypal.com/invoice/p/#INV2-1794519720626-4565",
+      "payerViewUrl": "https://www.sandbox.paypal.com/invoice/p/#INV2-1794519720626-4565",
+      "invoicerViewUrl": null,
+      "amount": 550,
+      "currency": "USD",
+      "createdAt": "2026-11-12T21:42:00.626Z",
+      "updatedAt": "2026-11-12T21:42:00.637Z",
+      "paidAt": "2026-11-12T21:42:00.645Z"
+    }
+  },
+  {
+    "negotiationId": "neg_1794519724148_3df38805",
+    "roomId": "room_diag_test",
+    "hostSocketId": "eCVMFDlZkZRMYX-nAAAA",
+    "hostName": "Host Alice",
+    "selectedElementIds": [
+      "e1"
+    ],
+    "currentOfferId": "off_1794519724148_e8b06b03",
+    "status": "AGREED",
+    "currency": "USD",
+    "offers": [
+      {
+        "offerId": "off_1794519724148_e8b06b03",
+        "negotiationId": "neg_1794519724148_3df38805",
+        "senderRole": "host",
+        "senderSocketId": "eCVMFDlZkZRMYX-nAAAA",
+        "senderName": "Host Alice",
+        "amount": 200,
+        "currency": "USD",
+        "items": [
+          {
+            "componentId": "e1",
+            "description": "Design Work",
+            "quantity": 1,
+            "unitPrice": 200,
+            "subtotal": 200
+          }
+        ],
+        "message": "",
+        "createdAt": "2026-11-12T21:42:04.148Z",
+        "status": "ACCEPTED"
+      }
+    ],
+    "payments": [],
+    "createdAt": "2026-11-12T21:42:04.148Z",
+    "updatedAt": "2026-11-12T21:42:04.150Z",
+    "agreedAmount": 200
   }
 ]

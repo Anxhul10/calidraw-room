@@ -294,6 +294,7 @@ export async function analyzeCanvasWithAI(request: GenerateInvoiceRequest): Prom
   const normalizedAnnotations = Array.isArray(annotations) ? annotations : [];
 
   // 1. If GEMINI_API_KEY is available, use Google Gemini multimodal API
+  console.log(process.env.GEMINI_API_KEY)
   if (process.env.GEMINI_API_KEY && image) {
     try {
       const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
@@ -310,7 +311,7 @@ ${context || "None provided"}
 Analyze the image and annotations strictly following all rules. Return ONLY valid JSON.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -347,7 +348,7 @@ Analyze the image and annotations strictly following all rules. Return ONLY vali
           return {
             draft: sanitized,
             metadata: {
-              model: "gemini-1.5-flash",
+              model: "gemini-3.5-flash-lite",
               annotatedItemCount: annotatedCount,
               inferredItemCount: inferredCount,
             },
@@ -510,10 +511,11 @@ ${itemsJson}
 Return ONLY valid JSON.`;
 
   // Attempt Gemini
+    
   if (process.env.GEMINI_API_KEY) {
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -524,19 +526,33 @@ Return ONLY valid JSON.`;
               responseMimeType: "application/json",
             },
           }),
-        },
+        }
       );
 
-      if (response.ok) {
-        const json = await response.json();
-        const candidateText =
-          json.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (candidateText) {
-          const parsed = JSON.parse(candidateText);
-          return {
-            draft: sanitizeEnhancedDraft(parsed, items, title),
-            metadata: { model: "gemini-1.5-flash" },
-          };
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        console.error("Gemini enhancement HTTP error:", response.status);
+        console.error("Gemini response:", responseText);
+      } else {
+        try {
+          const json = JSON.parse(responseText);
+          const candidateText =
+            json.candidates?.[0]?.content?.parts?.[0]?.text;
+
+          if (candidateText) {
+            const parsed = JSON.parse(candidateText);
+
+            return {
+              draft: sanitizeEnhancedDraft(parsed, items, title),
+              metadata: { model: "gemini-3.5-flash-lite" },
+            };
+          }
+
+          console.error("Gemini returned no candidate text:", responseText);
+        } catch (parseError) {
+          console.error("Gemini response parsing failed:", parseError);
+          console.error("Gemini raw response:", responseText);
         }
       }
     } catch (err) {
